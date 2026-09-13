@@ -97,7 +97,7 @@ export default function App() {
                  <img src={logo} alt="Logo" className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-gray-800">ِAman Jaz</h1>
+                <h1 className="text-lg font-bold text-gray-800">Aman Jaz</h1>
                 <p className="text-xs text-gray-500">نظام إدارة المخزون</p>
               </div>
             </div>
