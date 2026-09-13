@@ -1,4 +1,6 @@
+//supabase/migrations/20260912013840_fix_dashboard_summary_v2.sql
 /*
+
 # Fix get_dashboard_summary — qualify all column references with table names
 
 ## Problem

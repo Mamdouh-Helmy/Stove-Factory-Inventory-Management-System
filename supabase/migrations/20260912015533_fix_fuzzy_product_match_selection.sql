@@ -1,3 +1,4 @@
+//supabase/migrations/20260912015533_fix_fuzzy_product_match_selection.sql
 /*
 # Fix fuzzy product selection
 

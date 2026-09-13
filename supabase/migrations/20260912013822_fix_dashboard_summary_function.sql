@@ -1,3 +1,4 @@
+//supabase/migrations/20260912013822_fix_dashboard_summary_function.sql
 /*
 # Fix get_dashboard_summary function — ambiguous column references
 

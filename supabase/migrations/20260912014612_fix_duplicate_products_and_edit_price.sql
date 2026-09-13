@@ -1,4 +1,6 @@
+//supabase/migrations/20260912014612_fix_duplicate_products_and_edit_price.sql
 /*
+
 # Fix duplicate products and add price editing
 
 ## Problems

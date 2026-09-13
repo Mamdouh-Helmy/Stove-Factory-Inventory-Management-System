@@ -1,3 +1,4 @@
+//supabase/migrations/20260912013904_fix_dashboard_summary_v3.sql
 /*
 # Simplify get_dashboard_summary to return JSON
 

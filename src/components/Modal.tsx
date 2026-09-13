@@ -1,5 +1,8 @@
+'use client';
+
 import { X } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 interface Props {
   open: boolean;
@@ -10,6 +13,12 @@ interface Props {
 }
 
 export default function Modal({ open, onClose, title, children, maxWidth = 'max-w-md' }: Props) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden';
@@ -17,9 +26,9 @@ export default function Modal({ open, onClose, title, children, maxWidth = 'max-
     }
   }, [open]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm" onClick={onClose} />
       <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidth} max-h-[90vh] flex flex-col`}>
@@ -33,6 +42,7 @@ export default function Modal({ open, onClose, title, children, maxWidth = 'max-
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

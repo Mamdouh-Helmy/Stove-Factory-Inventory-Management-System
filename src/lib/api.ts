@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { Product, StockBatch, InventoryTransaction, DashboardSummary } from '@/types/inventory';
+import type { Product, StockBatch, InventoryTransaction, DashboardSummary, Customer } from '@/types/inventory';
 
 export async function fetchProducts(): Promise<Product[]> {
   const { data, error } = await supabase
@@ -23,12 +23,13 @@ export async function fetchBatches(productId: string): Promise<StockBatch[]> {
 export async function fetchTransactions(productId: string): Promise<InventoryTransaction[]> {
   const { data, error } = await supabase
     .from('inventory_transactions')
-    .select('*')
+    .select('*, customers(name, phone)')
     .eq('product_id', productId)
     .order('created_at', { ascending: false });
   if (error) throw error;
   return data ?? [];
 }
+ 
 
 export async function fetchDashboardSummary(): Promise<DashboardSummary> {
   const { data, error } = await supabase.rpc('get_dashboard_summary');
@@ -107,6 +108,7 @@ export async function stockOut(params: {
   notes?: string;
   source?: string;
   createdBy?: string;
+  customerId?: string;
 }): Promise<string> {
   const { data, error } = await supabase.rpc('stock_out', {
     p_product_id: params.productId,
@@ -115,6 +117,7 @@ export async function stockOut(params: {
     p_notes: params.notes || null,
     p_source: params.source || null,
     p_created_by: params.createdBy || null,
+    p_customer_id: params.customerId || null,
   });
   if (error) throw error;
   return data;
@@ -154,3 +157,92 @@ export async function fetchAllTransactions(): Promise<InventoryTransaction[]> {
   if (error) throw error;
   return data ?? [];
 }
+
+export async function fetchCustomers(): Promise<Customer[]> {
+  const { data, error } = await supabase
+    .from('customers')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function searchCustomers(query: string): Promise<Customer[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const { data, error } = await supabase
+    .from('customers')
+    .select('*')
+    .or(`name.ilike.%${q}%,phone.ilike.%${q}%`)
+    .order('name', { ascending: true })
+    .limit(10);
+  if (error) return [];
+  return data ?? [];
+}
+
+export async function createCustomer(params: {
+  name: string;
+  phone: string;
+  address?: string;
+  notes?: string;
+}): Promise<Customer> {
+  const { data, error } = await supabase
+    .from('customers')
+    .insert({
+      name: params.name.trim(),
+      phone: params.phone.trim(),
+      address: params.address?.trim() || null,
+      notes: params.notes?.trim() || null,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateCustomer(params: {
+  id: string;
+  name: string;
+  phone: string;
+  address?: string;
+  notes?: string;
+}): Promise<void> {
+  const { error } = await supabase
+    .from('customers')
+    .update({
+      name: params.name.trim(),
+      phone: params.phone.trim(),
+      address: params.address?.trim() || null,
+      notes: params.notes?.trim() || null,
+    })
+    .eq('id', params.id);
+  if (error) throw error;
+}
+
+export async function deleteCustomer(id: string): Promise<void> {
+  const { error } = await supabase.from('customers').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function fetchCustomerSales(params?: {
+  customerId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}): Promise<InventoryTransaction[]> {
+  let query = supabase
+    .from('inventory_transactions')
+    .select('*, products(name), customers(name, phone, address)')
+    .eq('type', 'STOCK_OUT')
+    .not('customer_id', 'is', null)
+    .order('created_at', { ascending: false });
+ 
+  if (params?.customerId) query = query.eq('customer_id', params.customerId);
+  if (params?.dateFrom) query = query.gte('created_at', params.dateFrom);
+  if (params?.dateTo) query = query.lte('created_at', params.dateTo);
+ 
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
+}
+ 
+

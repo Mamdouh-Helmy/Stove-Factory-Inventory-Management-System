@@ -1,3 +1,4 @@
+//supabase/migrations/20260913020931_update_product_with_quantity_adjustment.sql
 /*
 # Update update_product to support quantity adjustments and notes
 

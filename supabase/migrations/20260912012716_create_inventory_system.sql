@@ -1,3 +1,4 @@
+//supabase/migrations/20260912012716_create_inventory_system.sql
 /*
 # Inventory Management System for Butane Gas Factory
 

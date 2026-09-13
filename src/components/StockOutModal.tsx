@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Check } from 'lucide-react';
 import Modal from './Modal';
-import { stockOut } from '@/lib/api';
-import type { Product } from '@/types/inventory';
+import { stockOut, searchCustomers, createCustomer } from '@/lib/api';
+import type { Product, Customer } from '@/types/inventory';
 import { formatNumber, formatCurrency } from '@/lib/format';
 
 interface Props {
@@ -21,7 +22,36 @@ export default function StockOutModal({ product, open, onClose, onSuccess }: Pro
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const reset = () => { setQuantity(''); setReason(''); setSource(''); setNotes(''); setError(null); };
+  // Customer linking (only relevant when reason === 'بيع')
+  const [customerQuery, setCustomerQuery] = useState('');
+  const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [isNewCustomer, setIsNewCustomer] = useState(false);
+  const [newCustomerPhone, setNewCustomerPhone] = useState('');
+  const [newCustomerAddress, setNewCustomerAddress] = useState('');
+
+  const reset = () => {
+    setQuantity(''); setReason(''); setSource(''); setNotes(''); setError(null);
+    setCustomerQuery(''); setCustomerSuggestions([]); setSelectedCustomer(null);
+    setIsNewCustomer(false); setNewCustomerPhone(''); setNewCustomerAddress('');
+  };
+
+  useEffect(() => {
+    if (reason !== 'بيع') {
+      setSelectedCustomer(null); setIsNewCustomer(false); setCustomerQuery('');
+    }
+  }, [reason]);
+
+  useEffect(() => {
+    if (!customerQuery.trim() || customerQuery.trim().length < 2 || selectedCustomer) {
+      setCustomerSuggestions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setCustomerSuggestions(await searchCustomers(customerQuery.trim()));
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [customerQuery, selectedCustomer]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,15 +63,32 @@ export default function StockOutModal({ product, open, onClose, onSuccess }: Pro
       setError(`الكمية المطلوبة (${qty}) أكبر من المخزون المتاح (${product.current_quantity})`);
       return;
     }
+    if (isNewCustomer && (!customerQuery.trim() || !newCustomerPhone.trim())) {
+      setError('اسم العميل ورقم التليفون مطلوبين لإضافة عميل جديد');
+      return;
+    }
 
     setLoading(true);
     try {
+      let customerId: string | undefined;
+      if (selectedCustomer) {
+        customerId = selectedCustomer.id;
+      } else if (isNewCustomer) {
+        const created = await createCustomer({
+          name: customerQuery.trim(),
+          phone: newCustomerPhone.trim(),
+          address: newCustomerAddress.trim() || undefined,
+        });
+        customerId = created.id;
+      }
+
       await stockOut({
         productId: product.id,
         quantity: qty,
         reason: reason || undefined,
         source: source.trim() || undefined,
         notes: notes.trim() || undefined,
+        customerId,
       });
       reset();
       onSuccess();
@@ -93,6 +140,87 @@ export default function StockOutModal({ product, open, onClose, onSuccess }: Pro
               {REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
+
+          {/* Customer linking — only shown for sales */}
+          {reason === 'بيع' && (
+            <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3.5 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-700">ربط البيع بعميل (اختياري)</label>
+                {!isNewCustomer && (
+                  <button
+                    type="button"
+                    onClick={() => { setIsNewCustomer(true); setSelectedCustomer(null); setCustomerQuery(''); }}
+                    className="text-xs text-blue-600 hover:underline font-medium"
+                  >
+                    + عميل جديد
+                  </button>
+                )}
+              </div>
+
+              {!isNewCustomer ? (
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={selectedCustomer ? selectedCustomer.name : customerQuery}
+                    onChange={(e) => { setCustomerQuery(e.target.value); setSelectedCustomer(null); }}
+                    placeholder="ابحث بالاسم أو رقم التليفون..."
+                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-gray-800 bg-white"
+                  />
+                  {selectedCustomer && (
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 text-xs text-green-600 font-medium">
+                      <Check className="w-4 h-4" /> {selectedCustomer.phone}
+                    </span>
+                  )}
+                  {customerSuggestions.length > 0 && !selectedCustomer && (
+                    <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-44 overflow-y-auto">
+                      {customerSuggestions.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => { setSelectedCustomer(c); setCustomerSuggestions([]); }}
+                          className="w-full text-right px-3 py-2.5 hover:bg-blue-50 transition-colors border-b border-gray-50 last:border-0"
+                        >
+                          <div className="text-sm font-medium text-gray-800">{c.name}</div>
+                          <div className="text-xs text-gray-400">{c.phone}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">بيانات العميل الجديد</span>
+                    <button type="button" onClick={() => { setIsNewCustomer(false); setCustomerQuery(''); }} className="text-xs text-gray-500 hover:underline">
+                      إلغاء
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={customerQuery}
+                    onChange={(e) => setCustomerQuery(e.target.value)}
+                    placeholder="اسم العميل *"
+                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-gray-800 bg-white"
+                  />
+                  <input
+                    type="tel"
+                    value={newCustomerPhone}
+                    onChange={(e) => setNewCustomerPhone(e.target.value)}
+                    placeholder="رقم التليفون *"
+                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-gray-800 bg-white"
+                  />
+                  <input
+                    type="text"
+                    value={newCustomerAddress}
+                    onChange={(e) => setNewCustomerAddress(e.target.value)}
+                    placeholder="العنوان (اختياري)"
+                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-gray-800 bg-white"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">مصدر السحب (اختياري)</label>
             <input

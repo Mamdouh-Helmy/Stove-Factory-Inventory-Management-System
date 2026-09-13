@@ -38,7 +38,10 @@ export interface InventoryTransaction {
   balance_after: number;
   source: string | null;
   created_by: string | null;
+  customer_id: string | null;
   created_at: string;
+  products?: { name: string } | null;
+  customers?: { name: string; phone: string; address?: string | null } | null;
 }
 
 export interface DashboardSummary {
@@ -58,4 +61,18 @@ export function getStockStatus(product: Product): StockStatus {
   if (product.current_quantity === 0) return 'out_of_stock';
   if (product.current_quantity <= product.minimum_stock) return 'low_stock';
   return 'in_stock';
+}
+
+
+export interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  address: string | null;
+  notes: string | null;
+  total_orders: number;
+  total_spent: number;
+  last_order_at: string | null;
+  created_at: string;
+  updated_at: string;
 }

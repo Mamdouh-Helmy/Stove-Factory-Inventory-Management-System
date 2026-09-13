@@ -1,3 +1,4 @@
+//supabase/migrations/20260912015521_prevent_fuzzy_duplicate_products.sql
 /*
 # Prevent duplicate products caused by small name differences
 

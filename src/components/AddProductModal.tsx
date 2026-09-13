@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Check } from 'lucide-react';
+import {  Check } from 'lucide-react';
 import Modal from './Modal';
 import { createProductWithStock, searchProducts } from '@/lib/api';
 import type { Product } from '@/types/inventory';
