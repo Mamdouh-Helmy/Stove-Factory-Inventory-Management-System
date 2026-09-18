@@ -6,7 +6,7 @@ import { X, Printer, Download } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import type { InventoryTransaction } from '@/types/inventory';
 import { formatCurrency, formatNumber, formatDateTime } from '@/lib/format';
-import logo from "../../public/ChatGPT Image Sep 13, 2026, 09_25_19 PM.png"
+import logo from "../../public/WhatsApp Image 2026-09-16 at 7.31.25 PM.jpeg"
 
 interface Props {
   transaction: InventoryTransaction | null;

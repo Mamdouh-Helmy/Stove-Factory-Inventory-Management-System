@@ -16,7 +16,7 @@ import DeleteConfirmModal from '@/components/DeleteConfirmModal';
 import ProductDetailsDrawer from '@/components/ProductDetailsDrawer';
 import CustomersPage from '@/components/CustomersPage';
 import ReportsPage from '@/components/ReportsPage';
-import logo from "../public/ChatGPT Image Sep 13, 2026, 09_25_19 PM.png"
+import logo from "../public/WhatsApp Image 2026-09-16 at 7.31.25 PM.jpeg"
 
 type StockFilter = 'all' | 'in_stock' | 'low_stock' | 'out_of_stock';
 type View = 'inventory' | 'customers' | 'reports';
@@ -106,7 +106,7 @@ export default function App() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               <div>
-                <img src={logo} alt="Logo" className="w-6 h-6" />
+                <img src={logo} alt="Logo" className="w-10 h-10" />
               </div>
               <div>
                 <h1 className="text-lg font-bold text-gray-800">Aman Jaz</h1>
