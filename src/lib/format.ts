@@ -1,12 +1,14 @@
-export function formatCurrency(value: number): string {
+export function formatCurrency(value: number | null | undefined): string {
   return new Intl.NumberFormat('ar-EG', {
+    style: 'currency',
+    currency: 'EGP',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(value) + ' ج.م';
+  }).format(value ?? 0);
 }
 
-export function formatNumber(value: number): string {
-  return new Intl.NumberFormat('ar-EG').format(value);
+export function formatNumber(value: number | null | undefined): string {
+  return new Intl.NumberFormat('ar-EG').format(value ?? 0);
 }
 
 export function formatDate(date: string | Date): string {

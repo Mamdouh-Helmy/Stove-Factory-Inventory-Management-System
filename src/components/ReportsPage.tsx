@@ -3,7 +3,9 @@ import { BarChart3, Users, Wallet, Package, Receipt, User } from 'lucide-react';
 import type { Customer, InventoryTransaction } from '@/types/inventory';
 import { fetchCustomers, fetchCustomerSales } from '@/lib/api';
 import { formatCurrency, formatNumber, formatDateTime } from '@/lib/format';
+import { usePagination } from '@/lib/usePagination';
 import InvoiceModal from './InvoiceModal';
+import Pagination from './Pagination';
 
 export default function ReportsPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -44,6 +46,9 @@ export default function ReportsPage() {
     const uniqueCustomers = new Set(sales.map((t) => t.customer_id)).size;
     return { totalValue, totalQty, uniqueCustomers, count: sales.length };
   }, [sales]);
+
+  const { pageItems, page, setPage, pageSize, setPageSize, total } = usePagination(sales, 10);
+  useEffect(() => { setPage(1); }, [customerId, dateFrom, dateTo, setPage]);
 
   const openInvoice = (t: InventoryTransaction) => { setSelectedSale(t); setShowInvoice(true); };
 
@@ -86,7 +91,7 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Summary cards */}
+      {/* Summary cards (محسوبة على كل المبيعات مش الصفحة الحالية) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3">
           <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
@@ -145,7 +150,7 @@ export default function ReportsPage() {
         <>
           {/* Mobile: card list */}
           <div className="sm:hidden space-y-3">
-            {sales.map((t) => (
+            {pageItems.map((t) => (
               <div key={t.id} className="bg-white rounded-xl border border-gray-200 p-3.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -190,7 +195,7 @@ export default function ReportsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {sales.map((t) => (
+                  {pageItems.map((t) => (
                     <tr key={t.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{formatDateTime(t.created_at)}</td>
                       <td className="px-4 py-3">
@@ -218,6 +223,14 @@ export default function ReportsPage() {
               </table>
             </div>
           </div>
+
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </>
       )}
 

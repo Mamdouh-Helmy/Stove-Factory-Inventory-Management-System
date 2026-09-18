@@ -4,8 +4,10 @@ import type { Product, DashboardSummary } from '@/types/inventory';
 import { getStockStatus } from '@/types/inventory';
 import { fetchProducts, fetchDashboardSummary } from '@/lib/api';
 import { formatCurrency } from '@/lib/format';
+import { usePagination } from '@/lib/usePagination';
 import StatsCards from '@/components/StatsCards';
 import ProductTable from '@/components/ProductTable';
+import Pagination from '@/components/Pagination';
 import AddProductModal from '@/components/AddProductModal';
 import AddStockModal from '@/components/AddStockModal';
 import StockOutModal from '@/components/StockOutModal';
@@ -68,6 +70,16 @@ export default function App() {
     return result;
   }, [products, search, stockFilter]);
 
+  const { pageItems, page, setPage, pageSize, setPageSize, total } = usePagination(filteredProducts, 10);
+
+  // ارجع لأول صفحة لما البحث أو الفلتر يتغير
+  useEffect(() => { setPage(1); }, [search, stockFilter, setPage]);
+
+  const filteredTotalValue = useMemo(
+    () => filteredProducts.reduce((sum, p) => sum + (p.total_stock_value || 0), 0),
+    [filteredProducts]
+  );
+
   const handleAddStock = (product: Product) => { setSelectedProduct(product); setShowAddStock(true); };
   const handleStockOut = (product: Product) => { setSelectedProduct(product); setShowStockOut(true); };
   const handleDetails = (product: Product) => { setSelectedProduct(product); setShowDetails(true); };
@@ -93,8 +105,8 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <div >
-                 <img src={logo} alt="Logo" className="w-6 h-6" />
+              <div>
+                <img src={logo} alt="Logo" className="w-6 h-6" />
               </div>
               <div>
                 <h1 className="text-lg font-bold text-gray-800">Aman Jaz</h1>
@@ -170,7 +182,7 @@ export default function App() {
             </div>
 
             <ProductTable
-              products={filteredProducts}
+              products={pageItems}
               loading={loading}
               onAddStock={handleAddStock}
               onStockOut={handleStockOut}
@@ -179,11 +191,19 @@ export default function App() {
               onDelete={handleDelete}
             />
 
-            {!loading && filteredProducts.length > 0 && (
-              <div className="flex items-center justify-between text-sm text-gray-500 px-1">
-                <span>عرض {filteredProducts.length} من {products.length} منتج</span>
-                <span>إجمالي قيمة المخزون المعروض: {formatCurrency(filteredProducts.reduce((sum, p) => sum + p.total_stock_value, 0))}</span>
-              </div>
+            {!loading && total > 0 && (
+              <>
+                <Pagination
+                  page={page}
+                  pageSize={pageSize}
+                  total={total}
+                  onPageChange={setPage}
+                  onPageSizeChange={setPageSize}
+                />
+                <div className="text-sm text-gray-500 px-1">
+                  إجمالي قيمة المخزون المعروض: <span className="font-semibold text-gray-700">{formatCurrency(filteredTotalValue)}</span>
+                </div>
+              </>
             )}
           </>
         )}
