@@ -1,6 +1,16 @@
 import { supabase } from './supabase';
 import type { Product, StockBatch, InventoryTransaction, DashboardSummary, Customer } from '@/types/inventory';
 
+// ───────────────────────── Helpers ─────────────────────────
+
+// يشيل المسافات الزيادة (أول/آخر/متكررة) من الاسم
+const normalizeName = (s: string) => s.trim().replace(/\s+/g, ' ');
+
+// يهرّب رموز LIKE الخاصة عشان ilike يتصرف كمطابقة تامة
+const escapeLike = (s: string) => s.replace(/[\\%_]/g, '\\$&');
+
+// ───────────────────────── Products ─────────────────────────
+
 export async function fetchProducts(): Promise<Product[]> {
   const { data, error } = await supabase
     .from('products')
@@ -29,7 +39,6 @@ export async function fetchTransactions(productId: string): Promise<InventoryTra
   if (error) throw error;
   return data ?? [];
 }
- 
 
 export async function fetchDashboardSummary(): Promise<DashboardSummary> {
   const { data, error } = await supabase.rpc('get_dashboard_summary');
@@ -37,6 +46,10 @@ export async function fetchDashboardSummary(): Promise<DashboardSummary> {
   return data as unknown as DashboardSummary;
 }
 
+/**
+ * @deprecated الدالة دي بتدمج المنتجات بالاسم جوه الـ SQL.
+ * استخدم createNewProduct (منتج جديد) أو addStock (منتج موجود).
+ */
 export async function createProductWithStock(params: {
   name: string;
   code?: string;
@@ -59,15 +72,65 @@ export async function createProductWithStock(params: {
   return data;
 }
 
-export async function findExistingProduct(name: string): Promise<Product | null> {
-  const { data, error } = await supabase
+// بحث بالاسم المطابق تمامًا (مش جزء من الاسم) — مع تجاهل حالة الحروف
+export async function findProductByExactName(
+  name: string,
+  excludeId?: string
+): Promise<Product | null> {
+  let q = supabase
     .from('products')
     .select('*')
-    .ilike('name', name.trim())
-    .limit(1)
-    .maybeSingle();
-  if (error) return null;
+    .ilike('name', escapeLike(normalizeName(name)));
+  if (excludeId) q = q.neq('id', excludeId);
+
+  const { data, error } = await q.limit(1).maybeSingle();
+  if (error) throw error;
   return data;
+}
+
+// إنشاء منتج جديد دايمًا (من غير أي دمج مع منتج موجود)
+export async function createNewProduct(params: {
+  name: string;
+  code?: string;
+  quantity: number;
+  unitCost: number;
+  minimumStock: number;
+  notes?: string;
+}): Promise<string> {
+  const name = normalizeName(params.name);
+
+  const existing = await findProductByExactName(name);
+  if (existing) {
+    throw new Error('يوجد منتج بنفس الاسم بالفعل، اختره من القائمة لإضافة كمية له');
+  }
+
+  const { data, error } = await supabase
+    .from('products')
+    .insert({
+      name,
+      code: params.code?.trim() || null,
+      minimum_stock: params.minimumStock,
+      last_unit_cost: params.unitCost || 0,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+
+  if (params.quantity > 0) {
+    try {
+      await addStock({
+        productId: data.id,
+        quantity: params.quantity,
+        unitCost: params.unitCost,
+        notes: params.notes,
+      });
+    } catch (err) {
+      // rollback: امسح المنتج لو إضافة الكمية فشلت
+      await supabase.from('products').delete().eq('id', data.id);
+      throw err;
+    }
+  }
+  return data.id;
 }
 
 export async function searchProducts(query: string): Promise<Product[]> {
@@ -158,6 +221,8 @@ export async function fetchAllTransactions(): Promise<InventoryTransaction[]> {
   return data ?? [];
 }
 
+// ───────────────────────── Customers ─────────────────────────
+
 export async function fetchCustomers(): Promise<Customer[]> {
   const { data, error } = await supabase
     .from('customers')
@@ -235,14 +300,12 @@ export async function fetchCustomerSales(params?: {
     .eq('type', 'STOCK_OUT')
     .not('customer_id', 'is', null)
     .order('created_at', { ascending: false });
- 
+
   if (params?.customerId) query = query.eq('customer_id', params.customerId);
   if (params?.dateFrom) query = query.gte('created_at', params.dateFrom);
   if (params?.dateTo) query = query.lte('created_at', params.dateTo);
- 
+
   const { data, error } = await query;
   if (error) throw error;
   return data ?? [];
 }
- 
-

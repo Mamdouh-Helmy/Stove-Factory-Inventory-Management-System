@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import {  Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 import Modal from './Modal';
-import { createProductWithStock, searchProducts } from '@/lib/api';
+import { createNewProduct, addStock, searchProducts } from '@/lib/api';
 import type { Product } from '@/types/inventory';
 import { formatNumber } from '@/lib/format';
 
@@ -38,24 +38,32 @@ export default function AddProductModal({ open, onClose, onSuccess }: Props) {
   }, [open]);
 
   useEffect(() => {
-    if (!name.trim() || name.trim().length < 2) {
+    // لو المستخدم اختار منتج، متدورش تاني
+    if (selectedProduct) return;
+
+    if (name.trim().length < 2) {
       setSuggestions([]);
       setShowSuggestions(false);
-      setSelectedProduct(null);
       return;
     }
+
+    let cancelled = false;
     const timer = setTimeout(async () => {
       const results = await searchProducts(name.trim());
+      if (cancelled) return;
       setSuggestions(results);
       setShowSuggestions(results.length > 0);
     }, 250);
-    return () => clearTimeout(timer);
-  }, [name]);
+
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [name, selectedProduct]);
 
   const selectProduct = (p: Product) => {
     setSelectedProduct(p);
     setName(p.name);
     setShowSuggestions(false);
+    setSuggestions([]);
+    if (p.last_unit_cost) setUnitCost(String(p.last_unit_cost));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -66,17 +74,29 @@ export default function AddProductModal({ open, onClose, onSuccess }: Props) {
     const cost = parseFloat(unitCost) || 0;
     if (qty < 0) { setError('الكمية لا يمكن أن تكون سالبة'); return; }
     if (cost < 0) { setError('السعر لا يمكن أن يكون سالب'); return; }
+    if (selectedProduct && qty <= 0) { setError('اكتب الكمية المراد إضافتها'); return; }
 
     setLoading(true);
     try {
-      await createProductWithStock({
-        name: name.trim(),
-        code: selectedProduct ? undefined : (code.trim() || undefined),
-        quantity: qty,
-        unitCost: cost,
-        minimumStock: selectedProduct ? selectedProduct.minimum_stock : (parseInt(minimumStock) || 5),
-        notes: notes.trim() || undefined,
-      });
+      if (selectedProduct) {
+        // منتج موجود → تشغيلة جديدة عليه
+        await addStock({
+          productId: selectedProduct.id,
+          quantity: qty,
+          unitCost: cost,
+          notes: notes.trim() || undefined,
+        });
+      } else {
+        // منتج جديد دايمًا
+        await createNewProduct({
+          name,
+          code: code.trim() || undefined,
+          quantity: qty,
+          unitCost: cost,
+          minimumStock: parseInt(minimumStock) || 5,
+          notes: notes.trim() || undefined,
+        });
+      }
       reset();
       onSuccess();
       onClose();
@@ -114,6 +134,12 @@ export default function AddProductModal({ open, onClose, onSuccess }: Props) {
               </span>
             )}
           </div>
+
+          {!selectedProduct && name.trim().length >= 2 && (
+            <p className="text-xs text-gray-400 mt-1">
+              سيتم إنشاء <span className="font-medium text-gray-600">منتج جديد</span> — لو عايز تضيف على منتج موجود اخترته من القائمة.
+            </p>
+          )}
 
           {/* Suggestions dropdown */}
           {showSuggestions && suggestions.length > 0 && !selectedProduct && (
@@ -173,7 +199,7 @@ export default function AddProductModal({ open, onClose, onSuccess }: Props) {
           </>
         )}
 
-        {/* Quantity & price — always shown */}
+        {/* Quantity & price */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">الكمية</label>

@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Modal from './Modal';
-import { updateProduct } from '@/lib/api';
+import { updateProduct, findProductByExactName } from '@/lib/api';
 import type { Product } from '@/types/inventory';
 import { formatNumber, formatCurrency } from '@/lib/format';
 
@@ -21,11 +21,9 @@ export default function EditProductModal({ product, open, onClose, onSuccess }: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const lastProductRef = useRef<string | null>(null);
-
+  // اتصفّر مع كل فتح للمودال (مش بس لما يتغير الـ id)
   useEffect(() => {
-    if (product && product.id !== lastProductRef.current) {
-      lastProductRef.current = product.id;
+    if (open && product) {
       setName(product.name);
       setCode(product.code || '');
       setMinimumStock(String(product.minimum_stock));
@@ -34,8 +32,8 @@ export default function EditProductModal({ product, open, onClose, onSuccess }: 
       setNotes('');
       setError(null);
     }
-    if (!product) lastProductRef.current = null;
-  }, [product]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, product?.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,9 +50,17 @@ export default function EditProductModal({ product, open, onClose, onSuccess }: 
 
     setLoading(true);
     try {
+      // منع تكرار الاسم مع منتج تاني
+      const duplicate = await findProductByExactName(name, product.id);
+      if (duplicate) {
+        setError('يوجد منتج آخر بنفس الاسم');
+        setLoading(false);
+        return;
+      }
+
       await updateProduct({
         productId: product.id,
-        name: name.trim(),
+        name: name.trim().replace(/\s+/g, ' '),
         code: code.trim() || undefined,
         minimumStock: parseInt(minimumStock) || 5,
         lastUnitCost: cost,
